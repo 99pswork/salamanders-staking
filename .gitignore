@@ -6,5 +6,5 @@ artifacts/
 cache/
 coverage/
 .vscode/
-credentials.js
+credentials.json
 .env

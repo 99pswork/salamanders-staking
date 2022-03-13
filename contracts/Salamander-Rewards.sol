@@ -1,22 +1,26 @@
 // File: contracts/SmartChefInitializable.sol
 
-pragma solidity ^0.8.0;
+pragma solidity >= 0.8.1;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
-import "./SafeERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 interface IERC721 {
     // List functions to invoke.
-    function ownerOf(uint256 tokenId) external view override returns (address);
+    function ownerOf(uint256 tokenId) external view returns (address);
 }
 
-contract SmartChefInitializable is Ownable, ReentrancyGuard {
+contract RewardSalamander is Ownable, ReentrancyGuard {
     using SafeMath for uint256;
     using SafeERC20 for IERC20;
 
     IERC721 public nftAddress;
+
+    // The address of the smart chef factory
+    address public SMART_CHEF_FACTORY;
 
     // Whether it is initialized
     bool public isInitialized;
@@ -28,13 +32,16 @@ contract SmartChefInitializable is Ownable, ReentrancyGuard {
     uint256 public startBlock;
 
     // The block number of the last pool update
-    uint256 public lastRewardBlock;
+    uint256 public lastRewardBlock;         
 
     // CAKE tokens created per block.
-    uint256 public rewardPerBlock;
+    uint256 public rewardPerBlock;      // 78 with 10^5 precision
 
     // The precision factor
     uint256 public PRECISION_FACTOR;
+
+    // Token Decimals
+    uint256 public tokenDecimals;
 
     // The Salamander Token
     IERC20 public rewardToken;
@@ -50,7 +57,7 @@ contract SmartChefInitializable is Ownable, ReentrancyGuard {
     event RewardsStop(uint256 blockNumber);
     event Withdraw(address indexed user, uint256 amount);
 
-    constructor() public {
+    constructor() ReentrancyGuard() {
         SMART_CHEF_FACTORY = msg.sender;
     }
 
@@ -70,6 +77,8 @@ contract SmartChefInitializable is Ownable, ReentrancyGuard {
         uint256 _rewardPerBlock,
         uint256 _startBlock,
         uint256 _bonusEndBlock,
+        uint256 _tokenDecimal,
+        uint256 _precision_factor,
         address _admin
     ) external {
         require(!isInitialized, "Already initialized");
@@ -87,21 +96,23 @@ contract SmartChefInitializable is Ownable, ReentrancyGuard {
         // Set the lastRewardBlock as the startBlock
         lastRewardBlock = startBlock;
 
+        tokenDecimals = _tokenDecimal;
+        PRECISION_FACTOR = _precision_factor;
         // Transfer ownership to the admin address who becomes owner of the contract
         transferOwnership(_admin);
     }
 
     /* Calculate Rewards */
     /// MAP to NFT not Address
-    function calculateReward(uint256 _tokenId) internal returns (uint256) {
+    function calculateReward(uint256 _tokenId) view internal returns (uint256) {
         uint256 countBlock;
-        if(userLastReward[_tokenId]!=0){
-            countBlock = block.number - userLastReward[_address];
+        if(tokenLastReward[_tokenId]!=0){
+            countBlock = block.number - tokenLastReward[_tokenId];
         }
         else{
             countBlock = block.number - startBlock;
         }
-        return countBlock*rewardPerBlock;
+        return countBlock*rewardPerBlock*(10**tokenDecimals)/(10**PRECISION_FACTOR);
     }
 
     // Check for endblock < block.number
@@ -110,27 +121,29 @@ contract SmartChefInitializable is Ownable, ReentrancyGuard {
      * @notice Withdraw staked tokens and collect reward tokens
      * @param _amount: amount to withdraw (in rewardToken)
      */
-    function withdraw(uint256 _tokenId) external nonReentrant {
+    function claimRewards(uint256 _tokenId) external nonReentrant {
 
-        require(msg.sender == nftAddress.ownerOf(tokenId), "You are not owner of token");
+        require(msg.sender == nftAddress.ownerOf(_tokenId), "You are not owner of token");
         require(block.number < bonusEndBlock, "Rewards Have Been Stopped");
         
         uint256 tokenReward = calculateReward(_tokenId);
         uint256 tokenBal = rewardToken.balanceOf(address(this));
         
         require(tokenReward <= tokenBal, "Not enough Tokens Available");
-        userLastReward[_tokenId] = block.number;
+        tokenLastReward[_tokenId] = block.number;
         rewardToken.safeTransfer(address(msg.sender), tokenReward);
         emit Withdraw(msg.sender, tokenReward);
     }
 
-    function safeWithdraw(uint256 _tokenId) external nonReentrant {
+    // Function Owner Withdraw
 
-        require(msg.sender == ownerOf(tokenId), "You are not owner of token");
+    function safeRewardClaim(uint256 _tokenId) external nonReentrant {
+
+        require(msg.sender == nftAddress.ownerOf(_tokenId), "You are not owner of token");
         require(block.number < bonusEndBlock, "Rewards Have Been Stopped");
         
-        uint256 tokenReward = calculateReward(msg.sender);
-        userLastReward[msg.sender] = block.number;
+        uint256 tokenReward = calculateReward(_tokenId);
+        tokenLastReward[_tokenId] = block.number;
         safeTokenTransfer(msg.sender, tokenReward);
     }
 
@@ -188,5 +201,15 @@ contract SmartChefInitializable is Ownable, ReentrancyGuard {
         lastRewardBlock = startBlock;
 
         emit NewStartAndEndBlocks(_startBlock, _bonusEndBlock);
+    }
+
+    function updateEndBlock(uint256 _bonusEndBlock) external onlyOwner {
+        require(block.number < _bonusEndBlock, "End Block cannot be less than current Block");
+        bonusEndBlock = _bonusEndBlock;
+    }
+
+
+    function balanceOfRewards() view external returns(uint256) {
+        return rewardToken.balanceOf(address(this));
     }
 }

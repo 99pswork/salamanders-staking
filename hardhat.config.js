@@ -1,20 +1,18 @@
-/**
- * @type import('hardhat/config').HardhatUserConfig
- */
- require("@nomiclabs/hardhat-waffle")
- require("@nomiclabs/hardhat-truffle5");
+
+require("@nomiclabs/hardhat-waffle")
+require("@nomiclabs/hardhat-truffle5");
 require("@nomiclabs/hardhat-etherscan");
  // require("solidity-coverage");
  
  // require('hardhat-spdx-license-identifier');
  // require("hardhat-gas-reporter");
- const CONFIG = require("./credentials.js");
+ const CONFIG = require("./credentials.json");
  
  module.exports = {
      solidity: {
          compilers: [
             {
-                version: "0.8.0",
+                version: "0.8.4",
                 settings: {
                     optimizer: {
                         enabled: false,
@@ -49,31 +47,31 @@ require("@nomiclabs/hardhat-etherscan");
          },
          bscTestnet: {
              url: `https://data-seed-prebsc-1-s1.binance.org:8545/`,
-             accounts: [CONFIG.wallet.PKEY],
+             accounts: [CONFIG["RINKEBY"]["PKEY"]],
              gasPrice: 30000000000,
          },
          bscMainnet: {
             url: `https://bsc-dataseed.binance.org/`,
-            accounts: [CONFIG.wallet.PKEY],
+            accounts: [CONFIG["RINKEBY"]["PKEY"]],
             gasPrice: 30000000000,
         },
          polygonTestnet: {
-            url: CONFIG.polygonTestnet.url,
-            accounts: [CONFIG.wallet.PKEY],
+            url: CONFIG["RINKEBY"]["URL"],
+            accounts: [CONFIG["RINKEBY"]["PKEY"]],
             gasPrice: 1000000000,
          },
          ftmTestnet: {
             url: `https://rpc.testnet.fantom.network/`,
-            accounts: [CONFIG.wallet.PKEY],
+            accounts: [CONFIG["RINKEBY"]["PKEY"]],
          },
          rinkeby: {
             url: "https://rinkeby.infura.io/v3/ad9cef41c9c844a7b54d10be24d416e5",
-            accounts: [CONFIG.wallet.PKEY],
+            accounts: [CONFIG["RINKEBY"]["PKEY"]],
             // gasPrice: 30000000000,
         },
         kovan: {
             url: "https://kovan.infura.io/v3/ad9cef41c9c844a7b54d10be24d416e5",
-            accounts: [CONFIG.wallet.PKEY],
+            accounts: [CONFIG["RINKEBY"]["PKEY"]],
             // gasPrice: 30000000000,
         },
      },
@@ -85,7 +83,7 @@ require("@nomiclabs/hardhat-etherscan");
      },
      etherscan: {
         apiKey: {
-            ftmTestnet: `${CONFIG.ftmscan.KEY}`
+            ftmTestnet: `${CONFIG["RINKEBY"]["PKEY"]}`
         }
     }
  };
